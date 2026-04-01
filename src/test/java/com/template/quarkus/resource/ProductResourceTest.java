@@ -1,6 +1,7 @@
 package com.template.quarkus.resource;
 
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
 import io.restassured.http.ContentType;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
@@ -10,8 +11,23 @@ import org.junit.jupiter.api.TestMethodOrder;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
+/**
+ * Integration tests for ProductResource.
+ *
+ * @TestSecurity: Quarkus test utility that mocks JWT authentication.
+ * Applied at the class level here so all tests run as "admin" with roles [Admin, User].
+ * This avoids the need to generate real JWT tokens in every test.
+ *
+ * Individual methods can override the class-level @TestSecurity if needed
+ * (e.g., to test 403 Forbidden with a non-admin user).
+ *
+ * Without @TestSecurity:
+ *   - @PermitAll endpoints: still work (no token needed)
+ *   - @RolesAllowed endpoints: return 401 Unauthorized
+ */
 @QuarkusTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@TestSecurity(user = "admin", roles = {"Admin", "User"})
 class ProductResourceTest {
 
     private static final String PRODUCTS_PATH = "/api/products";
@@ -19,7 +35,7 @@ class ProductResourceTest {
     private static Long createdProductId;
 
     // -------------------------------------------------------------------------
-    // POST — create
+    // POST — create  (requires "User" or "Admin" role)
     // -------------------------------------------------------------------------
     @Test
     @Order(1)
@@ -99,7 +115,7 @@ class ProductResourceTest {
     }
 
     // -------------------------------------------------------------------------
-    // GET — list
+    // GET — list  (@PermitAll)
     // -------------------------------------------------------------------------
     @Test
     @Order(4)
@@ -130,7 +146,7 @@ class ProductResourceTest {
     }
 
     // -------------------------------------------------------------------------
-    // GET — by ID
+    // GET — by ID  (@PermitAll)
     // -------------------------------------------------------------------------
     @Test
     @Order(6)
@@ -156,7 +172,7 @@ class ProductResourceTest {
     }
 
     // -------------------------------------------------------------------------
-    // GET — by category
+    // GET — by category  (@PermitAll)
     // -------------------------------------------------------------------------
     @Test
     @Order(8)
@@ -171,7 +187,7 @@ class ProductResourceTest {
     }
 
     // -------------------------------------------------------------------------
-    // GET — search
+    // GET — search  (@PermitAll)
     // -------------------------------------------------------------------------
     @Test
     @Order(9)
@@ -186,7 +202,7 @@ class ProductResourceTest {
     }
 
     // -------------------------------------------------------------------------
-    // PUT — update
+    // PUT — update  (requires "Admin" role)
     // -------------------------------------------------------------------------
     @Test
     @Order(10)
@@ -238,7 +254,7 @@ class ProductResourceTest {
     }
 
     // -------------------------------------------------------------------------
-    // DELETE
+    // DELETE  (requires "Admin" role)
     // -------------------------------------------------------------------------
     @Test
     @Order(12)
@@ -268,5 +284,31 @@ class ProductResourceTest {
                 .get(PRODUCTS_PATH + "/" + createdProductId)
             .then()
                 .statusCode(404);
+    }
+
+    // -------------------------------------------------------------------------
+    // Security check — unauthenticated user cannot create/update/delete
+    // -------------------------------------------------------------------------
+    @Test
+    @Order(15)
+    @TestSecurity(authorizationEnabled = false)   // Override: no auth = @PermitAll only
+    void createProduct_unauthenticated_shouldReturn401() {
+        String body = """
+            {
+              "name": "Unauthorized Product",
+              "sku": "UNAUTH-001",
+              "price": 10.00,
+              "stockQuantity": 1,
+              "category": "Test"
+            }
+            """;
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(body)
+            .when()
+                .post(PRODUCTS_PATH)
+            .then()
+                .statusCode(401);
     }
 }
