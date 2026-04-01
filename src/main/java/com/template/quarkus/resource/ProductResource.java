@@ -5,6 +5,8 @@ import com.template.quarkus.dto.ProductRequest;
 import com.template.quarkus.dto.ProductResponse;
 import com.template.quarkus.exception.ErrorResponse;
 import com.template.quarkus.service.ProductService;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -20,11 +22,43 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
+import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.net.URI;
 import java.util.List;
 
+/**
+ * Product catalog REST API — enhanced with:
+ *
+ * FEATURE: JWT Role-Based Access Control (@RolesAllowed).
+ *
+ * Jakarta Security (and MicroProfile JWT) let you restrict endpoints by role.
+ * The role comes from the "groups" claim inside the JWT, populated at login.
+ *
+ * Key annotations:
+ *   @PermitAll         — no token required (public endpoint)
+ *   @RolesAllowed("User")  — any authenticated user (role: User)
+ *   @RolesAllowed("Admin") — only admin users (role: Admin)
+ *   @DenyAll           — always denied (useful for disabling endpoints)
+ *
+ * Policy application order (from broadest to most specific):
+ *   class-level → method-level (method-level takes precedence)
+ *
+ * If no security annotation is present, Quarkus defaults to:
+ *   - authenticated required (if quarkus.security.jaxrs.deny-unannotated-endpoints=true)
+ *   - permit all (default)
+ *
+ * See application.properties:
+ *   mp.jwt.verify.publickey.location=publicKey.pem
+ *   mp.jwt.verify.issuer=https://quarkus-template-app
+ *
+ * How to test:
+ *   1. POST /api/auth/login  { "username": "admin", "password": "admin123" }
+ *   2. Copy the "token" from the response
+ *   3. Add header: Authorization: Bearer <token>
+ *   4. Call any protected endpoint
+ */
 @Path("/api/products")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -38,12 +72,13 @@ public class ProductResource {
     UriInfo uriInfo;
 
     // -------------------------------------------------------------------------
-    // GET /api/products
+    // GET /api/products — public read access
     // -------------------------------------------------------------------------
     @GET
+    @PermitAll  // Anyone can browse products — no token required
     @Operation(
         summary = "List all active products",
-        description = "Returns a paginated list of all active products. Use `page` and `size` for pagination."
+        description = "Returns a paginated list of all active products. No authentication required."
     )
     @APIResponses({
         @APIResponse(responseCode = "200", description = "Paginated product list",
@@ -63,10 +98,11 @@ public class ProductResource {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/products/{id}
+    // GET /api/products/{id} — public read access
     // -------------------------------------------------------------------------
     @GET
     @Path("/{id}")
+    @PermitAll  // Product details are publicly readable
     @Operation(summary = "Get a product by ID")
     @APIResponses({
         @APIResponse(responseCode = "200", description = "Product found",
@@ -83,10 +119,11 @@ public class ProductResource {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/products/category/{category}
+    // GET /api/products/category/{category} — public
     // -------------------------------------------------------------------------
     @GET
     @Path("/category/{category}")
+    @PermitAll
     @Operation(summary = "Get products by category")
     @APIResponse(responseCode = "200", description = "List of products in the given category")
     public Response getByCategory(
@@ -98,10 +135,11 @@ public class ProductResource {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/products/search?q=keyword
+    // GET /api/products/search?q=keyword — public
     // -------------------------------------------------------------------------
     @GET
     @Path("/search")
+    @PermitAll
     @Operation(summary = "Search products by name keyword")
     @APIResponse(responseCode = "200", description = "Matching products")
     public Response search(
@@ -113,15 +151,22 @@ public class ProductResource {
     }
 
     // -------------------------------------------------------------------------
-    // POST /api/products
+    // POST /api/products — requires "User" or "Admin" role
     // -------------------------------------------------------------------------
     @POST
-    @Operation(summary = "Create a new product")
+    @RolesAllowed({"User", "Admin"})  // Any authenticated user may create products
+    @Operation(
+        summary = "Create a new product",
+        description = "Requires authentication. Any logged-in user (role: User or Admin) may create products.",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
     @APIResponses({
         @APIResponse(responseCode = "201", description = "Product created",
             content = @Content(schema = @Schema(implementation = ProductResponse.class))),
         @APIResponse(responseCode = "400", description = "Validation error",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @APIResponse(responseCode = "401", description = "Not authenticated — include Bearer token"),
+        @APIResponse(responseCode = "403", description = "Insufficient role"),
         @APIResponse(responseCode = "409", description = "SKU already exists",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
@@ -134,16 +179,23 @@ public class ProductResource {
     }
 
     // -------------------------------------------------------------------------
-    // PUT /api/products/{id}
+    // PUT /api/products/{id} — requires "Admin" role
     // -------------------------------------------------------------------------
     @PUT
     @Path("/{id}")
-    @Operation(summary = "Update an existing product")
+    @RolesAllowed("Admin")  // Only admins may update products
+    @Operation(
+        summary = "Update an existing product",
+        description = "Requires Admin role. Only administrators can modify existing products.",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
     @APIResponses({
         @APIResponse(responseCode = "200", description = "Product updated",
             content = @Content(schema = @Schema(implementation = ProductResponse.class))),
         @APIResponse(responseCode = "400", description = "Validation error",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+        @APIResponse(responseCode = "401", description = "Not authenticated"),
+        @APIResponse(responseCode = "403", description = "Admin role required"),
         @APIResponse(responseCode = "404", description = "Product not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
         @APIResponse(responseCode = "409", description = "SKU already exists",
@@ -159,16 +211,24 @@ public class ProductResource {
     }
 
     // -------------------------------------------------------------------------
-    // DELETE /api/products/{id}
+    // DELETE /api/products/{id} — requires "Admin" role
     // -------------------------------------------------------------------------
     @DELETE
     @Path("/{id}")
+    @RolesAllowed("Admin")  // Only admins may delete products
     @Operation(
         summary = "Delete a product",
-        description = "Soft-deletes the product by marking it inactive. The record is retained in the database."
+        description = """
+            Soft-deletes the product by marking it inactive.
+            The record is retained in the database.
+            Requires Admin role.
+            """,
+        security = @SecurityRequirement(name = "bearerAuth")
     )
     @APIResponses({
         @APIResponse(responseCode = "204", description = "Product deleted"),
+        @APIResponse(responseCode = "401", description = "Not authenticated"),
+        @APIResponse(responseCode = "403", description = "Admin role required"),
         @APIResponse(responseCode = "404", description = "Product not found",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })

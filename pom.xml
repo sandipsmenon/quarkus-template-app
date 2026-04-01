@@ -105,6 +105,40 @@
             <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
         </dependency>
 
+        <!-- Caching (Caffeine) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-cache</artifactId>
+        </dependency>
+
+        <!-- Scheduler -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
+
+        <!-- Fault Tolerance (Retry, Timeout, CircuitBreaker, Fallback) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
+        </dependency>
+
+        <!-- Security - JWT Authentication -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-jwt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-jwt-build</artifactId>
+        </dependency>
+
+        <!-- WebSockets (Next generation API) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-websockets-next</artifactId>
+        </dependency>
+
         <!-- Arc (CDI) -->
         <dependency>
             <groupId>io.quarkus</groupId>
@@ -115,6 +149,12 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Provides @TestSecurity to mock JWT roles in tests -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-test-security</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
