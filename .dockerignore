@@ -1,0 +1,29 @@
+# Build output
+target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.classpath
+*.project
+.settings/
+
+# Git
+.git/
+.gitignore
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Docs / CI config (not needed inside the image)
+README.md
+*.md
+.github/
+.gitlab-ci.yml
+
+# Local env files — never bake secrets into an image
+.env
+.env.*
+*.env

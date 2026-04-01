@@ -1,0 +1,65 @@
+version: "3.9"
+
+# =============================================================================
+# Full local stack: Quarkus app + PostgreSQL
+#
+#   docker compose up --build
+#   docker compose down -v        # tear down, including the data volume
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: quarkus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: quarkus_template
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d quarkus_template"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Quarkus application
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: quarkus-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/quarkus_template
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JSONPLACEHOLDER_URL: ${JSONPLACEHOLDER_URL:-https://jsonplaceholder.typicode.com}
+      JAVA_OPTS: >-
+        -Dquarkus.http.host=0.0.0.0
+        -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/q/health/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  postgres_data:
+    driver: local
