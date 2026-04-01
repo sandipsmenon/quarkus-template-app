@@ -111,10 +111,54 @@ quarkus-template-app/
 
 ## Prerequisites
 
-- **Java 21+** — `java -version`
-- **Maven 3.9+** — `mvn -version`
-- **Docker** (optional, for PostgreSQL via Docker)
-- **PostgreSQL 14+** (if running without Docker)
+### Java 21
+
+```bash
+# macOS (Homebrew)
+brew install --cask temurin@21
+
+# Verify
+java -version
+```
+
+### Maven 3.9+
+
+```bash
+# macOS (Homebrew)
+brew install maven
+
+# Verify
+mvn -version
+```
+
+### Maven Wrapper (optional but recommended)
+
+The Maven wrapper (`mvnw`) pins the exact Maven version for the project and lets teammates run builds without a system-wide Maven install. Generate it once after installing Maven:
+
+```bash
+mvn wrapper:wrapper
+```
+
+This creates `mvnw`, `mvnw.cmd`, and `.mvn/wrapper/maven-wrapper.properties`.  
+After that, use `./mvnw` instead of `mvn` in every command below.  
+**If you skip this step, replace `./mvnw` with `mvn` in all commands.**
+
+### Docker (optional)
+
+Required only to run PostgreSQL via Docker or to build container images.
+
+```bash
+# macOS — install Docker Desktop
+brew install --cask docker
+```
+
+### PostgreSQL 14+ (if not using Docker)
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+createdb quarkus_template
+```
 
 ---
 
@@ -145,10 +189,16 @@ docker run --name quarkus-pg \
 
 ## How to Run
 
+> **Note:** Commands below use `./mvnw`. If you haven't generated the wrapper yet, replace `./mvnw` with `mvn` everywhere.
+
 ### Development mode (live reload)
 
 ```bash
+# With wrapper (after running: mvn wrapper:wrapper)
 ./mvnw quarkus:dev
+
+# Without wrapper
+mvn quarkus:dev
 ```
 
 The app starts at **http://localhost:8080**  
@@ -161,13 +211,13 @@ Dev UI: **http://localhost:8080/q/dev**
 DB_URL=jdbc:postgresql://myhost:5432/mydb \
 DB_USERNAME=myuser \
 DB_PASSWORD=mypassword \
-./mvnw quarkus:dev
+mvn quarkus:dev
 ```
 
 ### Production JAR
 
 ```bash
-./mvnw clean package -DskipTests
+mvn clean package -DskipTests
 java -jar target/quarkus-app/quarkus-run.jar
 ```
 
@@ -469,13 +519,13 @@ Tests use **H2 in-memory database** (configured automatically via `%test` profil
 
 ```bash
 # Run all tests
-./mvnw test
+mvn test
 
 # Run a specific test class
-./mvnw test -Dtest=ProductResourceTest
+mvn test -Dtest=ProductResourceTest
 
 # Run with coverage report
-./mvnw test jacoco:report
+mvn test jacoco:report
 ```
 
 **Test types:**
@@ -489,7 +539,7 @@ Tests use **H2 in-memory database** (configured automatically via `%test` profil
 ### JVM mode (standard JAR)
 
 ```bash
-./mvnw clean package -DskipTests
+mvn clean package -DskipTests
 java -jar target/quarkus-app/quarkus-run.jar
 ```
 
@@ -497,7 +547,7 @@ java -jar target/quarkus-app/quarkus-run.jar
 
 ```bash
 # Requires GraalVM with native-image installed
-./mvnw clean package -Pnative -DskipTests
+mvn clean package -Pnative -DskipTests
 ./target/quarkus-template-app-1.0.0-SNAPSHOT-runner
 ```
 
@@ -529,7 +579,7 @@ The Maven dependency layer is cached separately from the source layer, so rebuil
 ### Build the JAR
 
 ```bash
-./mvnw clean package -DskipTests
+mvn clean package -DskipTests
 ```
 
 ### Build the Docker image
